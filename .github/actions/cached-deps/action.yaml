@@ -6,6 +6,12 @@ inputs:
     description: 'Whether to cache dependencies or not'
     required: true
     default: 'true'
+outputs:
+  cache-hit:
+    description: 'Whether the cached dependencies were used'
+    value: ${{ steps.cache-hit.outputs.cache-hit }}
+
+
 runs:
   using: 'composite'
   steps:
@@ -16,7 +22,20 @@ runs:
       with:
         path: node_modules
         key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
-    - name: Install dependencies
-      if: steps.cache.outputs.cache-hit != 'true' || inputs.caching !== 'true'
-      run: npm ci
+    - name: Set cache hit output
+      id: cache-hit
       shell: bash
+      run: |
+        if [ "${{ inputs.caching }}" == "true" ] && [ "$CACHE_HIT" == "true" ]; then
+          echo "cache-hit=true" >> $GITHUB_OUTPUT
+        else
+          echo "cache-hit=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+    - name: Install dependencies
+      id: install
+      if: steps.cache.outputs.cache-hit != 'true' || inputs.caching != 'true'
+      shell: bash
+      run: | 
+       npm ci
